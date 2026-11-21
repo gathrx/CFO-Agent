@@ -170,9 +170,26 @@ gcloud firestore databases create --region=asia-south1
 # Store Gemini API key in Secret Manager
 gcloud secrets create gemini-api-key --data-file=-  <<< "YOUR_API_KEY"
 
-# Trigger Cloud Build
-gcloud builds submit --config infrastructure/cloudbuild.yaml
+# Trigger Cloud Build (see "Login" below for these values)
+gcloud builds submit --config infrastructure/cloudbuild.yaml \
+  --substitutions=_ALLOWED_EMAILS=you@gmail.com,_FIREBASE_API_KEY=...,_FIREBASE_APP_ID=...
 ```
+
+### Login
+Every `/api/*` route requires a Google sign-in. The web app signs in with
+Firebase Auth and sends the ID token as `Authorization: Bearer <token>`; the
+backend verifies it and only accepts emails listed in `ALLOWED_EMAILS`
+(empty means nobody gets in). `/health` and `/` stay open.
+
+1. In the Firebase console, add Firebase to your GCP project, then
+   Authentication > Sign-in method > enable **Google**.
+2. Authentication > Settings > Authorized domains: add your frontend's domain.
+3. Project settings > Your apps > add a Web app, and copy its `apiKey` and
+   `appId` into `frontend/.env.local` (and the Cloud Build substitutions).
+4. Set `ALLOWED_EMAILS` on the backend to your Google account.
+
+For local development without Firebase, set `AUTH_DISABLED=true` in
+`backend/.env` and `NEXT_PUBLIC_AUTH_DISABLED=true` in `frontend/.env.local`.
 
 ### Cloud Scheduler (Nightly Alerts)
 The APScheduler inside the backend handles 9 PM IST nightly alerts automatically.
@@ -185,8 +202,12 @@ gcloud scheduler jobs create http nightly-cfo-alert \
   --time-zone="Asia/Kolkata" \
   --uri="https://YOUR_CLOUD_RUN_URL/api/alerts/generate" \
   --http-method=POST \
-  --message-body="{}"
+  --message-body="{}" \
+  --oidc-service-account-email=SCHEDULER_SA@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+  --oidc-token-audience="https://YOUR_CLOUD_RUN_URL"
 ```
+The API needs a login for this call too: set `API_AUDIENCE` to the Cloud Run URL
+and add the scheduler service account's email to `ALLOWED_EMAILS`.
 
 ---
 
@@ -198,6 +219,10 @@ gcloud scheduler jobs create http nightly-cfo-alert \
 | `GOOGLE_API_KEY` | Gemini API key |
 | `GCP_PROJECT_ID` | GCP project ID |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON |
+| `ALLOWED_EMAILS` | Comma-separated Google accounts allowed to use the API (empty = nobody) |
+| `FIREBASE_PROJECT_ID` | Firebase project for sign-in tokens (defaults to `GCP_PROJECT_ID`) |
+| `API_AUDIENCE` | Cloud Run URL, for Cloud Scheduler OIDC calls |
+| `AUTH_DISABLED` | `true` skips login checks (local development only) |
 | `MONTHLY_INVESTMENT_GOAL_PCT` | Investment goal % (default: 30) |
 | `NIGHTLY_ALERT_HOUR` | Alert hour in IST (default: 21) |
 

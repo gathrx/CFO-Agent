@@ -3,11 +3,12 @@ Personal CFO — FastAPI Application Entry Point
 """
 import logging
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
 from api.routes import router
+from api.auth import require_user
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,13 +31,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include all routes
-app.include_router(router)
+# Include all routes; every /api/* route requires a signed-in, allowed user
+app.include_router(router, dependencies=[Depends(require_user)])
 
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 Personal CFO API starting up...")
+    if settings.AUTH_DISABLED:
+        logger.warning("⚠️ AUTH_DISABLED is set: the API accepts requests without login")
+    elif not settings.get_allowed_emails():
+        logger.warning("⚠️ ALLOWED_EMAILS is empty: every API request will be refused")
     try:
         from agents.alert_agent import alert_agent
         alert_agent.start_scheduler()

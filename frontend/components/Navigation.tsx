@@ -9,8 +9,11 @@ import {
   ClipboardCheck,
   Bell,
   TrendingUp,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { AUTH_DISABLED, getFirebaseAuth } from "@/lib/firebase";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -61,10 +64,24 @@ export default function Navigation() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-700/50">
+      <div className="p-4 border-t border-slate-700/50 space-y-3">
         <div className="text-xs text-slate-500">
           Goal: 30% Investment 📈
         </div>
+        {!AUTH_DISABLED && (
+          <button
+            onClick={() => signOut(getFirebaseAuth())}
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-100"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+            {getFirebaseAuth().currentUser?.email && (
+              <span className="truncate text-slate-500">
+                ({getFirebaseAuth().currentUser?.email})
+              </span>
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );
