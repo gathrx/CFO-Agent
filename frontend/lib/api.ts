@@ -8,14 +8,21 @@ import {
   NightlyAlert,
   UploadResult,
 } from "@/types";
+import { getIdToken } from "@/lib/firebase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(await authHeaders()),
       ...options?.headers,
     },
   });
@@ -33,6 +40,7 @@ export const api = {
     formData.append("file", file);
     const res = await fetch(`${API_BASE}/api/transactions/upload-screenshot`, {
       method: "POST",
+      headers: await authHeaders(),
       body: formData,
     });
     if (!res.ok) throw new Error(await res.text());

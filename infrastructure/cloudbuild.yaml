@@ -22,8 +22,10 @@ steps:
       - --image=gcr.io/$PROJECT_ID/cfo-backend:$COMMIT_SHA
       - --region=asia-south1
       - --platform=managed
+      # Cloud Run stays reachable from the browser; the API itself rejects any
+      # request without a valid Google sign-in from an email in ALLOWED_EMAILS.
       - --allow-unauthenticated
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID
+      - --set-env-vars=^@^GCP_PROJECT_ID=$PROJECT_ID@ALLOWED_EMAILS=${_ALLOWED_EMAILS}@API_AUDIENCE=${_API_AUDIENCE}
       - --set-secrets=GOOGLE_API_KEY=gemini-api-key:latest
       - --memory=512Mi
       - --cpu=1
@@ -37,6 +39,17 @@ steps:
       - "npm ci && npm run build"
     env:
       - NEXT_PUBLIC_API_URL=https://cfo-backend-$PROJECT_NUMBER.asia-south1.run.app
+      - NEXT_PUBLIC_FIREBASE_API_KEY=${_FIREBASE_API_KEY}
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$PROJECT_ID.firebaseapp.com
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=$PROJECT_ID
+      - NEXT_PUBLIC_FIREBASE_APP_ID=${_FIREBASE_APP_ID}
+
+# Set these on the Cloud Build trigger, or with --substitutions on `gcloud builds submit`.
+substitutions:
+  _ALLOWED_EMAILS: ""   # comma-separated Google accounts allowed to sign in
+  _API_AUDIENCE: ""     # the Cloud Run URL, if Cloud Scheduler calls the API
+  _FIREBASE_API_KEY: "" # Firebase web app config (public values, not secrets)
+  _FIREBASE_APP_ID: ""
 
 images:
   - gcr.io/$PROJECT_ID/cfo-backend:$COMMIT_SHA
